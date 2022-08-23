@@ -5,6 +5,9 @@ url = "https://anchor.projectserum.com"
 cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
+[features]
+trivial_bounds = []
+
 [programs.mainnet]
 item = "itemX1XWs9dK8T2Zca4vEEPfCAhRc7yvYFntPjTTVx6"
 namespace = "nameAxQRRBnd4kLfsVoZBBXfrByZdZTkh8mULLxLyqV"
