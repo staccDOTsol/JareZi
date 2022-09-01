@@ -1,12 +1,15 @@
 pub mod utils;
+use anchor_lang::solana_program::entrypoint::ProgramResult;
 
 use {
     anchor_lang::{
+        solana_program::        program::{invoke, invoke_signed},
+solana_program::system_instruction,
         prelude::*,
-        AnchorDeserialize, AnchorSerialize,
+        AnchorDeserialize, AnchorSerialize
     }
 };
-anchor_lang::declare_id!("EMXJxUgMWD9uKiS2mtYCRBmKbGN9sHsDwMUnhNvWJR1X");
+anchor_lang::declare_id!("4p3SG3CTzDdKBhm4mUBxMqX52fZZiPUxqvHBpZxbsww7");
 pub const PREFIX: &str = "jarezi";
 #[program]
 pub mod jarezi {
@@ -15,141 +18,94 @@ pub mod jarezi {
 
 
 
-    pub fn join_jarezi<'a, 'b, 'c, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, JoinJareZi<'info>>,
-    ) -> Result<u8> {
-        let jarezi_instance = &mut ctx.accounts.jarezi_instance;
-        let jares = &mut ctx.accounts.jares;
-        let payer = &ctx.accounts.payer;
-
-
-        jarezi_instance.token_types_added = jarezi_instance
-            .token_types_added
-            .checked_add(1)
-            .ok_or(ErrorCode::NumericalOverflowError)?;
-
-        let now_ts = Clock::get().unwrap().unix_timestamp;
-
-        if jarezi_instance.lastthousand == 0 {
-            jarezi_instance.lastthousand = (now_ts + 1000) as i64;
-        }
-    if jares.lastplay  < now_ts - 10 || jares.lastplay > now_ts - 2  {// 5 > 20 -10 = 10 no
-        jares.disqualified = true; 
-        msg!("disq4");
-    
-    }
-        if jares.lastplay == 0  {
-            jares.disqualified = false;
-            jares.nice = 0;
-            msg!("disq2");
-        }
-            jares.nice = jares.nice.checked_add(1).ok_or(ErrorCode::NumericalOverflowError)?;
-            msg!("canplay");
-
-        if (now_ts) as i64 > jarezi_instance.lastthousand - 10 && !jares.disqualified && !jarezi_instance.bonus && jares.nice > 9 {
-            jarezi_instance.bonus = true;
-            return Ok(1 as u8);
-        }
-        if (now_ts) as i64 > jarezi_instance.lastthousand && !jares.disqualified && jares.nice > 1 {
-            msg!("winnawinnachickems");
-
-            jares.token_types_removed = jarezi_instance.token_types_removed;
-            jarezi_instance.lastthousand = (now_ts + 1000) as i64;
-            jares.nice = 0;
-            if now_ts > jarezi_instance.lastplay  {
-                msg!("becomewinna");
-                jarezi_instance.lastplay = now_ts; 
-                jarezi_instance.winning = payer.key();
-                jares.lastplay = now_ts; 
-                
-                
-            }
-            if (jares.token_types_removed < jarezi_instance.token_types_removed) && jares.disqualified {
-                jares.disqualified = false;
-                msg!("disq1");
-                jares.nice = 0;
-                jares.token_types_removed = jarezi_instance.token_types_removed;
-            }
-            if (now_ts) as i64 > jarezi_instance.lastthousand - 10 && !jares.disqualified && !jarezi_instance.bonus && jares.nice > 9 {
-                jarezi_instance.bonus = true;
-    
-                return   Ok(2 as u8);
-            }
-        if (now_ts) as i64 > jarezi_instance.lastthousand  && !jares.disqualified && jares.nice > 1 { 
-            msg!("winnawinnachickems");
-
-            jares.token_types_removed = jarezi_instance.token_types_removed;
-            jarezi_instance.lastthousand = (now_ts + 1000) as i64;
-            jares.nice = 0;
-    
-    
-            return   Ok(3 as u8);
-        }
+    pub fn update(
+        ctx: Context<Update>,
+        bulls: Vec<u8>,
+        bears:Vec<u8>,
+            kingbulls: Vec<u8>,
+        kingbears: Vec<u8>,
+        epochs: Vec<u8>,
+    ) -> ProgramResult {
         
-    }
-        if now_ts > jarezi_instance.lastplay  {
-            msg!("becomewinna");
-            jarezi_instance.lastplay = now_ts; 
-            jarezi_instance.winning = payer.key();
-            jares.lastplay = now_ts; 
-            
-            
+        let predictions =  &mut ctx.accounts.predictions;
+        if predictions.epoch[predictions.epoch.len()-1] == epochs[epochs.len()-1] {
+            if predictions.kingbear[kingbears.len()-1]  < bears[bears.len()-1] {
+                predictions.kingbear[kingbears.len()-1] = bears[bears.len()-1];
+            }
+            if predictions.kingbull[kingbulls.len()-1]  < bulls[bulls.len()-1] {
+                predictions.kingbull[kingbulls.len()-1] = bulls[bulls.len()-1];
+            }
+            predictions.bear[bears.len()-1] = bears[bears.len()-1]; 
+            predictions.bull[bulls.len()-1] = bulls[bulls.len()-1];
         }
+        else {
 
-        if (jares.token_types_removed < jarezi_instance.token_types_removed) && jares.disqualified {
-            jares.disqualified = false;
-            msg!("disq1");
-            jares.nice = 0;
-            jares.token_types_removed = jarezi_instance.token_types_removed;
+            predictions.epoch = epochs.into_boxed_slice();
+            predictions.bull = bulls.into_boxed_slice();
+            predictions.bear = bears.into_boxed_slice();
+
+            predictions.kingbull = kingbulls.into_boxed_slice();
+            predictions.kingbear = kingbears.into_boxed_slice();
+            
+            let predictions_account = &mut predictions.to_account_info();
+
+            let system_program = &ctx.accounts.system_program;
+            let payer_account = &ctx.accounts.auth.to_account_info();
+            let new_size = predictions_account.data.borrow().len() + 56;
+                
+    
+            let rent = Rent::get()?;
+            let new_minimum_balance = rent.minimum_balance(new_size);
+
+            let lamports_diff = new_minimum_balance.saturating_sub(predictions_account.lamports());
+            invoke(
+                &system_instruction::transfer(payer_account.key, predictions_account.key, lamports_diff),
+                &[
+                    payer_account.clone(),
+                    predictions_account.clone(),
+                    system_program.to_account_info().clone(),
+                ],
+            )?;
+            predictions_account.realloc(new_size, false)?;
+
+
         }
-        Ok(4 as u8)
+        Ok(())
     }
+
+}
+
+#[account]
+#[derive(Default, Debug)]
+pub struct Predictions {
+    bull: Box<[u8]>,
+    bear:Box<[u8]>,
+        kingbull: Box<[u8]>,
+    kingbear: Box<[u8]>,
+    epoch: Box<[u8]>,
+    auth: Pubkey
+}
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Default)]
+pub struct InitializeFanoutArgs2 {
+    bulls: Box<[u8]>,
+    bears:Box<[u8]>,
+        kingbulls: Box<[u8]>,
+    kingbears: Box<[u8]>,
+    epochs: Box<[u8]>,
 }
 
 #[derive(Accounts)]
-pub struct JoinJareZi<'info> {
-    #[account(init_if_needed, seeds=[PREFIX.as_bytes(), payer.key().as_ref(), jarezi_instance.key().as_ref()], bump, payer=payer, space=56 as usize)]
-    jares: Account<'info, Jares>,
-
-    #[account(mut, constraint = jarezi_instance.to_account_info().owner == &Pubkey::new_from_array([
-        11, 127, 234, 228,  24,   2, 223, 228,
-        19, 247,  33,  58, 249,   3,  67, 114,
-        21, 117, 159, 178, 240, 219,  24, 108,
-        175, 122, 132, 132, 188, 236,  41,  73
-    ]))]
-    jarezi_instance: Box<Account<'info, JareZi>>,
-
+#[instruction(bump: u8,   bulls: Box<[u8]>,
+    bears:Box<[u8]>,
+        kingbulls: Box<[u8]>,
+    kingbears: Box<[u8]>,
+    epochs: Box<[u8]>,)]
+pub struct Update<'info> {
+    #[account(init_if_needed, seeds=[b"pancake", auth.key().as_ref(), &[epochs[epochs.len()-1]]], bump, payer=auth, space=56 as usize)]
+    
+    pub predictions: Account<'info, Predictions>,
     #[account(mut)]
-    payer: Signer<'info>,
-    system_program: Program<'info, System>,
-    rent: Sysvar<'info, Rent>,
-}
+    pub auth: Signer <'info>,
 
-#[account]
-pub struct JareZi {
-    token_types_added: u8,
-    token_types_removed: u8,
-    jarezi_instance: Pubkey,
-    lastthousand: i64,
-    jares2: Pubkey,
-    winning: Pubkey,
-    lastplay: i64,
-    bonus: bool
-    
-}
-#[account]
-
- struct Jares {
-    lastplay: i64,
-    disqualified: bool,
-    token_types_removed: u8,
-    nice: u8
-}
-#[error_code]
-pub enum ErrorCode {
-    #[msg("hm")]
-    GenericError,
-    #[msg("numbers")]
-    NumericalOverflowError,
-    
+    pub system_program: Program<'info, System>,
 }

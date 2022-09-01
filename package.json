@@ -1,5 +1,5 @@
 {
-  "name": "@metaplex/metaplex-programs",
+  "name": "jarezi",
   "version": "1.0.0",
   "private": true,
   "description": "Metaplex Program Tests",
@@ -7,20 +7,31 @@
   "type": "module",
   "author": "Metaplex Contributors",
   "devDependencies": {
-    "@types/mocha": "^9.0.0",
     "@project-serum/anchor": "^0.24.2",
+    "@solana/web3.js": "^1.21.0",
+    "@types/mocha": "^9.0.0",
     "mocha": "^9.0.3",
     "ts-mocha": "^8.0.0",
     "ts-node": "^10.2.1",
-    "typescript": "^4.3.5",
-    "@solana/web3.js": "^1.21.0"
+    "typescript": "^4.3.5"
   },
   "scripts": {
     "idl": "node test/idlToTs",
     "test": "env MY_WALLET=$HOME/.config/solana/id.json ts-mocha -p ./tsconfig.json -t 1000000 test/*.ts"
   },
   "dependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.1.1",
+    "@nomiclabs/hardhat-truffle5": "^2.0.6",
+    "@nomiclabs/hardhat-web3": "^2.0.0",
     "@project-serum/common": "^0.0.1-beta.3",
-    "quicktype-core": "^6.0.70"
-  }
+    "dotenv": "^16.0.2",
+    "hardhat": "^2.10.2",
+    "hardhat-abi-exporter": "^2.10.0",
+    "hardhat-contract-sizer": "^2.6.1",
+    "node-fetch": "^3.2.10",
+    "quicktype-core": "^6.0.70",
+    "solidity-coverage": "^0.7.21"
+  },
+  "main": "index.js",
+  "repository": "https://github.com/staccDOTsol/jarezi"
 }
